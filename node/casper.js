@@ -1,7 +1,5 @@
 var casper = require('casper').create();
 
-function
-
 function parseLadvi() {
 	var out = [];
 	var table = document.getElementsByClassName('participation')[0];
