@@ -54,11 +54,22 @@ phantom.create(function (ph) {
         page.open('http://www.beach-ladvi.rezervuju.cz/event/2176/detail', function (status) {
             console.log('Open page status: ' + status);
             if(status === 'success') {
-                page.evaluate(parseLadvi, store);
+	            var sync = new Sync();
+                page.evaluate(parseLadvi, sync.store);
             }
             ph.exit();
         });
     });
 });
+
+
+
+Sync = function() {
+
+};
+Sync.prototype.store = function (data) {
+	console.log(data);
+};
+
 
 // connection.end();
