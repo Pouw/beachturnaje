@@ -9,6 +9,11 @@ var connection = mysql.createConnection({
 });
 connection.connect();
 
+var Venue = {};
+Venue.LADVI = 1;
+
+function cl (v) {console.log(v);}
+
 function parseLadvi () {
     var out = [];
     var table = document.getElementsByClassName('participation')[0];
@@ -46,8 +51,9 @@ function store(data) {
             console.log(connection.sql);
         }
     }
-
 }
+
+/*
 
 phantom.create(function (ph) {
     ph.createPage(function (page) {
@@ -61,15 +67,106 @@ phantom.create(function (ph) {
         });
     });
 });
-
+*/
 
 
 Sync = function() {
-
+	this.eventsList = [];
+};
+Sync.prototype.run = function() {
+	this.loadEventLists();
 };
 Sync.prototype.store = function (data) {
 	console.log(data);
 };
+Sync.prototype.loadEventLists = function() {
+	var me = this;
+	connection.query('SELECT * FROM parse_event_list', function(err, rows) {
+		if (!err) {
+			me.eventsList = rows;
+			me.parseEventsList();
+		} else {
+			console.log(err);
+		}
+	});
+};
+Sync.prototype.parseEventsList = function() {
+	for (var i = 0, count = this.eventsList.length; i < count; i++) {
+		var eventList = this.eventsList[i];
+		this.openEventListUrl(eventList.url);
+	}
+};
+Sync.prototype.openEventListUrl = function(url) {
+	var me = this;
+	phantom.create(function (ph) {
+		ph.createPage(function (page) {
+			page.open(url, function (status) {
+				console.log('EventList: ' + status + ' URL: ' + url);
+				if(status === 'success') {
+					var events = page.evaluate(me.parseEventListLadvi, 'events');
+					console.log(events);
+					me.openEventsDetailLadvi(events);
+					// page.render('example.png');
+				}
+				ph.exit();
+			});
+		});
+	});
+};
+Sync.prototype.parseEventListLadvi = function() {
+	var table = document.querySelector('table.table.table-admin tbody');
+	var rows = table.getElementsByTagName('tr');
+	var count = rows.length;
+	var events = [];
+	for (var i = 0; i < count; i++) {
+		var row = rows[i].getElementsByTagName('td');
+		var event = {
+			venue_id: 1 // Venue.LADVI
+		};
+		event.date = row[0].innerText.trim();
+		event.name = row[1].innerText.trim();
+		var capacity = row[2].innerText.trim().split('/');
+		event.team = capacity[1];
+		event.capacity = capacity[0];
+		event.url = row[4].querySelector('a').href;
+		event.remote_id = event.url.match(/event\/([0-9]*)\/detail/)[1];
+
+		events.push(event)
+	}
+	return events;
+};
+Sync.prototype.openEventsDetailLadvi = function(events) {
+	var count = events.length;
+	count = 1;
+	for (var i = 0; i < count; i++) {
+		var event = events[i];
+		this.openEventDetailLadvi(event);
+	}
+};
+Sync.prototype.openEventDetailLadvi = function(event) {
+	var me = this;
+	phantom.create(function (ph) {
+		ph.createPage(function (page) {
+			page.open(event.url, function (status) {
+				console.log('EventList: ' + status + ' URL: ' + event.url);
+				if(status === 'success') {
+					page.evaluate(me.parseEventDetailLadvi, me.store, 'x');
+					page.render('example.png');
+				}
+				ph.exit();
+			});
+		});
+	});
+};
+Sync.prototype.parseEventDetailLadvi = function(event) {
+	return event;
+};
 
 
-// connection.end();
+
+
+
+var sync = new Sync();
+sync.run();
+
+connection.end();
